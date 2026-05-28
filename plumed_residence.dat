@@ -1,0 +1,46 @@
+# =============================================================================
+# PLUMED INPUT FILE: plumed_residence.dat
+# Purpose : Compute collective variables (distance + coordination number)
+#           between a ligand and a binding site for residence time analysis.
+# Usage   : Called automatically by run_pipeline.sh
+#           Can also be run manually:
+#             plumed driver --plumed plumed_residence.dat \
+#                           --mf_xtc traj_centered.xtc \
+#                           --timestep 0.002 \
+#                           --trajectory-stride 1
+# Output  : colvar.dat  — time series of CVs (time | distance | coord_number)
+# =============================================================================
+
+# --- Molecule topology (needed for @resname_ selections) ---
+# Point to a PDB with CONECT records matching your system
+MOLINFO STRUCTURE=topology.pdb
+
+# --- Define ligand center of mass ---
+# Replace LIG with your actual residue name (e.g., ATP, NAD, DRG ...)
+lig: CENTER ATOMS=@resname_LIG
+
+# --- Define binding-site center of mass ---
+# Replace with atom indices of key binding-site residues.
+# Tip: use `gmx dump -s topol.tpr | grep -A2 "residue X"` to find indices.
+site: CENTER ATOMS=100,101,102,103,150
+
+# --- Distance between ligand and binding site ---
+# Units: nm.  Typical binding cutoff: 0.3–0.5 nm.
+d: DISTANCE ATOMS=lig,site
+
+# --- Coordination number ---
+# Counts how many ligand atoms are within R_0 of binding-site atoms.
+# GROUPA = ligand heavy atoms (all atoms of residue LIG)
+# GROUPB = binding-site heavy atoms (adjust range to your system)
+# R_0    = switching-function radius (nm); match to your binding geometry
+# NN, MM = exponents for rational switching function (default 6,12)
+coord: COORDINATION \
+  GROUPA=@resname_LIG \
+  GROUPB=100-200 \
+  R_0=0.35 \
+  NN=6 \
+  MM=12
+
+# --- Write output every frame ---
+# STRIDE=1 keeps every frame; increase (e.g., STRIDE=10) to reduce file size
+PRINT ARG=d,coord FILE=colvar.dat STRIDE=1
